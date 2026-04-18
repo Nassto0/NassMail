@@ -1,0 +1,96 @@
+// NassMail Prisma schema
+// For production on Vercel: change provider to "postgresql"
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  displayName  String?
+  passwordHash String
+  avatar       String?  // base64 data URL
+  preferences  String   @default("{}") // JSON: theme, density, readingPane, inboxType, conversationView
+  createdAt    DateTime @default(now())
+
+  sent     Email[]   @relation("Sender")
+  received Email[]   @relation("Recipient")
+  labels   Label[]
+}
+
+model Email {
+  id          String   @id @default(cuid())
+  messageId   String?  @unique
+  threadId    String?
+  subject     String   @default("")
+  bodyText    String   @default("")
+  bodyHtml    String   @default("")
+  fromAddress String
+  fromName    String?
+  toAddress   String
+  toName      String?
+  cc          String   @default("")
+  bcc         String   @default("")
+
+  folder       String   @default("INBOX") // INBOX | SENT | DRAFTS | TRASH | SPAM | ALL
+  isRead       Boolean  @default(false)
+  isStarred    Boolean  @default(false)
+  isImportant  Boolean  @default(false)
+  isExternal   Boolean  @default(false)
+  snoozeUntil  DateTime?
+  scheduledFor DateTime?
+
+  senderId    String?
+  sender      User?   @relation("Sender", fields: [senderId], references: [id])
+  recipientId String?
+  recipient   User?   @relation("Recipient", fields: [recipientId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  attachments Attachment[]
+  emailLabels EmailLabel[]
+
+  @@index([recipientId, folder, createdAt])
+  @@index([senderId, folder, createdAt])
+  @@index([snoozeUntil])
+  @@index([scheduledFor])
+}
+
+model Attachment {
+  id        String @id @default(cuid())
+  emailId   String
+  filename  String
+  mimeType  String
+  sizeBytes Int
+  data      Bytes
+  email     Email  @relation(fields: [emailId], references: [id], onDelete: Cascade)
+}
+
+model Label {
+  id        String       @id @default(cuid())
+  userId    String
+  name      String
+  color     String       @default("#6366f1")
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails    EmailLabel[]
+
+  @@unique([userId, name])
+}
+
+model EmailLabel {
+  emailId String
+  labelId String
+  email   Email  @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  label   Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([emailId, labelId])
+  @@index([emailId])
+  @@index([labelId])
+}

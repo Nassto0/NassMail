@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS variables are written by ThemeProvider — fallbacks here */
+:root {
+  --bg: #f5f7fb; --bg-elev: #ffffff; --bg-hover: #f1f5f9; --bg-soft: #eef2ff;
+  --border: #e5e7eb;
+  --text: #0f172a; --text-muted: #64748b; --text-subtle: #94a3b8;
+  --brand: #345fff; --brand-strong: #1f3ff5; --brand-soft: #dbe6ff; --brand-on: #ffffff;
+  --accent: #7c3aed; --danger: #e11d48; --success: #10b981;
+  --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  --shadow-pop: 0 10px 30px rgba(16,24,40,.12);
+  --scrollbar: #cbd5e1;
+  --ring: #5b86ff;
+
+  /* Density */
+  --row-py: 12px;
+  --row-gap: 12px;
+  --row-fs: 14px;
+}
+
+[data-density="comfortable"] { --row-py: 16px; --row-gap: 14px; --row-fs: 14px; }
+[data-density="default"]      { --row-py: 12px; --row-gap: 12px; --row-fs: 14px; }
+[data-density="compact"]      { --row-py: 7px;  --row-gap: 8px;  --row-fs: 13px; }
+
+html, body, #__next { height: 100%; }
+* { transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+}
+
+[lang="ar"] body {
+  font-family: "Segoe UI", Tahoma, Arial, "Noto Sans Arabic", "Arabic Typesetting", sans-serif;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { filter: brightness(0.9); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Subtle focus — avoid loud blue rings on click */
+*:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 6px;
+}
+
+/* Rounded search bar: keep focus on the shell, not a box inside */
+.search-pill:focus-within {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent);
+}
+.search-pill:focus-within input:focus,
+.search-pill:focus-within input:focus-visible {
+  box-shadow: none;
+}
+
+/* ─── tokens ─── */
+.surface       { background: var(--bg-elev); }
+.surface-soft  { background: var(--bg-soft); }
+.surface-hover { background: var(--bg-hover); }
+.border-token  { border-color: var(--border); }
+.text-token    { color: var(--text); }
+.text-muted    { color: var(--text-muted); }
+.text-subtle   { color: var(--text-subtle); }
+.shadow-soft   { box-shadow: var(--shadow); }
+.shadow-pop    { box-shadow: var(--shadow-pop); }
+
+.btn-brand     { background: var(--brand); color: var(--brand-on); }
+.btn-brand:hover { background: var(--brand-strong); }
+.bg-brand      { background: var(--brand); color: var(--brand-on); }
+.bg-brand-soft { background: var(--brand-soft); color: var(--brand); }
+.text-brand    { color: var(--brand); }
+.bg-danger     { background: var(--danger); color: white; }
+.text-danger   { color: var(--danger); }
+
+/* ─── animations ─── */
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes slideInRight { from { transform: translateX(24px); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
+@keyframes scaleIn { from { transform: scale(.97); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+@keyframes shimmer { 0% { background-position: -300px 0 } 100% { background-position: 300px 0 } }
+@keyframes pulseDot { 0%, 100% { opacity: .4 } 50% { opacity: 1 } }
+
+.anim-fade   { animation: fadeIn .2s ease both; }
+.anim-up     { animation: slideUp .25s cubic-bezier(.2,.8,.2,1) both; }
+.anim-right  { animation: slideInRight .28s cubic-bezier(.2,.8,.2,1) both; }
+.anim-scale  { animation: scaleIn .18s cubic-bezier(.2,.8,.2,1) both; }
+.anim-row    { animation: slideUp .28s cubic-bezier(.2,.8,.2,1) both; }
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-hover) 0%, var(--bg-soft) 50%, var(--bg-hover) 100%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Email rows respect density */
+.row { padding-top: var(--row-py); padding-bottom: var(--row-py); gap: var(--row-gap); font-size: var(--row-fs); }
+.email-row-unread { font-weight: 600; color: var(--text); }
+.email-row-read   { font-weight: 400; color: var(--text-muted); }
+
+/* Smooth hover */
+.hover-lift { transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.hover-lift:hover { transform: translateY(-1px); }
+
+/* Pretty mail content */
+.prose-mail { color: var(--text); line-height: 1.65; }
+.prose-mail a { color: var(--brand); text-decoration: underline; }
+.prose-mail p { margin: .75rem 0; }
+.prose-mail h1, .prose-mail h2, .prose-mail h3 { margin: 1.2rem 0 .5rem; font-weight: 600; }
+.prose-mail blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--text-muted); margin: 1rem 0; }
+
+/* Email letter card — always rendered light-on-light so inline colors stay readable
+   regardless of the active theme (Gmail/Outlook do the same). */
+.letter {
+  background: #ffffff;
+  color: #1a202c;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px 28px;
+  line-height: 1.65;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.letter a { color: #2563eb; text-decoration: underline; }
+.letter h1, .letter h2, .letter h3 { color: #0f172a; font-weight: 600; margin: 1.1rem 0 .5rem; }
+.letter h1 { font-size: 1.4rem; }
+.letter h2 { font-size: 1.2rem; }
+.letter p { margin: .75rem 0; color: #1f2937; }
+.letter blockquote { border-left: 3px solid #d1d5db; padding-left: 12px; color: #4b5563; margin: 1rem 0; }
+.letter pre, .letter code { background: #f3f4f6; color: #111827; border-radius: 6px; padding: 2px 6px; }
+.letter pre { padding: 12px; overflow: auto; }
+.letter img { max-width: 100%; height: auto; border-radius: 8px; }
+.letter hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.2rem 0; }
+.letter table { border-collapse: collapse; max-width: 100%; }
+.letter td, .letter th { border: 1px solid #e5e7eb; padding: 6px 10px; }
+.letter--plain {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  white-space: pre-wrap;
+}
+
+/* Inputs in dark themes shouldn't blow out white */
+input, textarea, select { color: var(--text); background: transparent; }
+input::placeholder, textarea::placeholder { color: var(--text-subtle); }
+
+/* Gmail-like glow on the brand gradient title */
+.brand-grad {
+  background-image: linear-gradient(135deg, var(--brand), var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
