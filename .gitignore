@@ -8,3 +8,5 @@ out
 prisma/dev.db*
 .DS_Store
 tsconfig.tsbuildinfo
+
+.vercel
