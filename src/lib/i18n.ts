@@ -9,8 +9,8 @@ type Dict = Record<string, string>;
 
 const en: Dict = {
   // Nav / auth
-  "app.tagline": "Business email, simplified.",
-  "app.subtitle": "A modern inbox with secure accounts, fast in-network delivery, and outbound options your organization can standardize on trusted providers.",
+  "app.tagline": "Email with control built in.",
+  "app.subtitle": "NassMail is built for teams that need speed, ownership, and policy-level control without relying on black-box email platforms.",
   "auth.signin": "Sign in",
   "auth.signout": "Sign out",
   "auth.create_account": "Create account",
@@ -30,15 +30,15 @@ const en: Dict = {
   "auth.creating": "Creating…",
   "auth.signing_in": "Signing in…",
   // Landing features
-  "feat.instant_title": "Fast in-network delivery",
-  "feat.instant_body": "Messages between NassMail accounts are delivered inside the platform without unnecessary delay.",
-  "feat.anywhere_title": "Outbound you can standardize",
-  "feat.anywhere_body": "Connect established email infrastructure so mail to external recipients is sent reliably and consistently.",
-  "feat.yours_title": "Governance you define",
-  "feat.yours_body": "Run the service on infrastructure you control, with access and retention aligned to your policies.",
-  "landing.badge": "Professional email on your domain",
-  "landing.h1": "Business email, simplified.",
-  "landing.lead": "NassMail offers a focused inbox, secure sign-in, immediate delivery between NassMail addresses, and flexible outbound delivery your administrators can configure.",
+  "feat.instant_title": "Instant internal delivery",
+  "feat.instant_body": "Instant delivery between users. No external routing.",
+  "feat.anywhere_title": "Reliable outbound at scale",
+  "feat.anywhere_body": "Connect trusted SMTP or API providers and send with consistent delivery.",
+  "feat.yours_title": "Governance by design",
+  "feat.yours_body": "Define access, retention, and compliance policies around your organization.",
+  "landing.badge": "Professional email on your own domain",
+  "landing.h1": "Email for teams that need control.",
+  "landing.lead": "Focused inbox. Instant internal delivery. Infrastructure and policies you own.",
   "landing.cta_primary": "Get started",
 
   // Folders
@@ -179,8 +179,8 @@ const en: Dict = {
 };
 
 const ar: Dict = {
-  "app.tagline": "بريد مهني، ببساطة.",
-  "app.subtitle": "صندوق بريد حديث مع حسابات آمنة، وتسليم سريع داخل الشبكة، وخيارات إرسال يمكن لمؤسستك توحيدها مع مزودين موثوقين.",
+  "app.tagline": "بريد إلكتروني مع تحكم كامل.",
+  "app.subtitle": "ناسميل مخصص للفرق التي تحتاج السرعة وملكية البيانات والتحكم بالسياسات دون الاعتماد على منصات بريد مغلقة.",
   "auth.signin": "تسجيل الدخول",
   "auth.signout": "تسجيل الخروج",
   "auth.create_account": "إنشاء حساب",
@@ -200,15 +200,15 @@ const ar: Dict = {
   "auth.creating": "جاري الإنشاء…",
   "auth.signing_in": "جاري تسجيل الدخول…",
 
-  "feat.instant_title": "تسليم سريع داخل الشبكة",
-  "feat.instant_body": "الرسائل بين حسابات ناسميل تُسلَّم داخل المنصة دون تأخير غير ضروري.",
-  "feat.anywhere_title": "إرسال خارجي موحّد",
-  "feat.anywhere_body": "اربط بنية بريد إلكتروني معتمدة لضمان وصول الرسائل الخارجية بثبات واتساق.",
-  "feat.yours_title": "حوكمة تحددها أنت",
-  "feat.yours_body": "شغّل الخدمة على بنية تحتية تديرها مؤسستك، مع صلاحيات واحتفاظ بالبيانات يتماشى مع سياساتك.",
-  "landing.badge": "بريد مهني على نطاقك",
-  "landing.h1": "بريد مهني، ببساطة.",
-  "landing.lead": "ناسميل يوفّر صندوق بريد مركّز، وتسجيل دخول آمن، وتسليم فوري بين عناوين ناسميل، ومرونة في الإرسال الخارجي يمكن لمسؤوليك ضبطه.",
+  "feat.instant_title": "تسليم فوري داخل النظام",
+  "feat.instant_body": "تسليم فوري بين المستخدمين دون أي توجيه خارجي.",
+  "feat.anywhere_title": "إرسال خارجي موثوق",
+  "feat.anywhere_body": "اربط مزودي SMTP أو واجهات البريد الموثوقة لإرسال ثابت وموثوق.",
+  "feat.yours_title": "حوكمة مدمجة من الأساس",
+  "feat.yours_body": "حدّد سياسات الوصول والاحتفاظ والامتثال بما يتوافق مع مؤسستك.",
+  "landing.badge": "بريد مهني على نطاقك الخاص",
+  "landing.h1": "بريد إلكتروني للفرق التي تحتاج التحكم.",
+  "landing.lead": "صندوق بريد مركّز. تسليم فوري داخلي. بنية وسياسات تملكها أنت.",
   "landing.cta_primary": "ابدأ الآن",
 
   "folder.inbox": "الوارد",
