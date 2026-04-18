@@ -4,7 +4,7 @@ import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "NassMail",
-  description: "Fast, clean email. Yours.",
+  description: "Professional email on your domain—secure inbox, fast in-network delivery, and outbound options your team can standardize.",
   icons: [{ rel: "icon", url: "/favicon.svg" }],
 };
 
