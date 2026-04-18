@@ -64,21 +64,22 @@ export async function GET(req: Request) {
       break;
   }
 
+  const ci = { mode: "insensitive" as const };
   if (q) {
     where.AND.push({
       OR: [
-        { subject: { contains: q } },
-        { bodyText: { contains: q } },
-        { fromAddress: { contains: q } },
-        { toAddress: { contains: q } },
-        { fromName: { contains: q } },
+        { subject: { contains: q, ...ci } },
+        { bodyText: { contains: q, ...ci } },
+        { fromAddress: { contains: q, ...ci } },
+        { toAddress: { contains: q, ...ci } },
+        { fromName: { contains: q, ...ci } },
       ],
     });
   }
-  if (from)     where.AND.push({ OR: [{ fromAddress: { contains: from } }, { fromName: { contains: from } }] });
-  if (to)       where.AND.push({ OR: [{ toAddress: { contains: to } }, { toName: { contains: to } }] });
-  if (subject)  where.AND.push({ subject: { contains: subject } });
-  if (hasWords) where.AND.push({ OR: [{ bodyText: { contains: hasWords } }, { subject: { contains: hasWords } }] });
+  if (from)     where.AND.push({ OR: [{ fromAddress: { contains: from, ...ci } }, { fromName: { contains: from, ...ci } }] });
+  if (to)       where.AND.push({ OR: [{ toAddress: { contains: to, ...ci } }, { toName: { contains: to, ...ci } }] });
+  if (subject)  where.AND.push({ subject: { contains: subject, ...ci } });
+  if (hasWords) where.AND.push({ OR: [{ bodyText: { contains: hasWords, ...ci } }, { subject: { contains: hasWords, ...ci } }] });
   if (dateFrom) where.AND.push({ createdAt: { gte: new Date(dateFrom) } });
   if (dateTo)   where.AND.push({ createdAt: { lte: new Date(dateTo) } });
   if (labelId)  where.AND.push({ emailLabels: { some: { labelId } } });

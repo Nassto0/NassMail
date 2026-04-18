@@ -51,6 +51,27 @@ async function sendBrevo(m: OutboundMail): Promise<SendResult> {
   return { messageId: data.messageId, provider: "brevo", accepted: true, info: data };
 }
 
+async function sendGmail(m: OutboundMail): Promise<SendResult> {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) throw new Error("GMAIL_USER / GMAIL_APP_PASSWORD missing");
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user, pass },
+  });
+  const info = await transporter.sendMail({
+    from: m.fromName ? `"${m.fromName}" <${user}>` : user,
+    replyTo: m.from,
+    to: m.to,
+    subject: m.subject,
+    text: m.text,
+    html: m.html,
+  });
+  return { messageId: info.messageId, provider: "gmail", accepted: true, info };
+}
+
 async function sendSmtp(m: OutboundMail): Promise<SendResult> {
   const host = process.env.SMTP_HOST;
   if (!host) throw new Error("SMTP_HOST missing");
@@ -86,6 +107,7 @@ async function sendDev(m: OutboundMail): Promise<SendResult> {
  */
 export async function sendExternal(m: OutboundMail): Promise<SendResult> {
   switch (provider) {
+    case "gmail":  return sendGmail(m);
     case "resend": return sendResend(m);
     case "brevo":  return sendBrevo(m);
     case "smtp":   return sendSmtp(m);

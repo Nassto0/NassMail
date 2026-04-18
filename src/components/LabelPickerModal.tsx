@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { X, Tag, Check, Loader2, RefreshCw } from "lucide-react";
+import { X, Tag, Check, Loader2, RefreshCw, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslate } from "./ThemeProvider";
 
@@ -22,6 +22,10 @@ export function LabelPickerModal({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState("#6366f1");
+  const [creatingBusy, setCreatingBusy] = useState(false);
 
   const syncFromServer = useCallback(async () => {
     setLoading(true);
@@ -87,6 +91,36 @@ export function LabelPickerModal({
       setErr(t("label.save_failed"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function createNewLabel() {
+    const name = newName.trim();
+    if (!name) return;
+    setCreatingBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/labels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({ name, color: newColor }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(typeof data.error === "string" ? data.error : t("label.save_failed"));
+        return;
+      }
+      const label: LabelRow = data.label;
+      setLabels((prev) => [...prev, label].sort((a, b) => a.name.localeCompare(b.name)));
+      setPicked((prev) => new Set(prev).add(label.id));
+      setNewName("");
+      setCreating(false);
+    } catch {
+      setErr(t("label.save_failed"));
+    } finally {
+      setCreatingBusy(false);
     }
   }
 
@@ -159,6 +193,47 @@ export function LabelPickerModal({
             </ul>
           )}
           {err && <p className="text-sm text-danger mt-2 px-1">{err}</p>}
+
+          {creating ? (
+            <div className="mt-3 p-2 rounded-xl surface-soft border border-token anim-up">
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={newColor}
+                  onChange={(e) => setNewColor(e.target.value)}
+                  className="w-7 h-7 rounded cursor-pointer"
+                  aria-label="Color"
+                />
+                <input
+                  autoFocus
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void createNewLabel(); if (e.key === "Escape") setCreating(false); }}
+                  placeholder="New label name"
+                  className="flex-1 bg-transparent text-sm outline-none border-b border-transparent focus:border-token"
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-2 text-xs">
+                <button type="button" onClick={() => setCreating(false)} className="text-muted hover:text-token">
+                  {t("side.cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={creatingBusy || !newName.trim()}
+                  onClick={() => void createNewLabel()}
+                  className="text-brand font-medium disabled:opacity-50">
+                  {creatingBusy ? "…" : t("side.create")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="mt-2 flex items-center gap-2 w-full rounded-xl px-3 py-2 text-sm text-brand hover:surface-hover">
+              <Plus className="w-4 h-4" /> New label
+            </button>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-token surface-soft">

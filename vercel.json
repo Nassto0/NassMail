@@ -2,5 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "prisma generate && next build",
   "framework": "nextjs",
-  "regions": ["fra1"]
+  "regions": ["fra1"],
+  "crons": [
+    { "path": "/api/inbound/poll?token=b7412349f5bc374baee75d8d5efa27f06945ca2ffe58627a", "schedule": "0 9 * * *" }
+  ]
 }
