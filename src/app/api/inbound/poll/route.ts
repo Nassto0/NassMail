@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ImapFlow } from "imapflow";
-import { simpleParser } from "mailparser";
+import { extract } from "letterparser";
 import DOMPurify from "isomorphic-dompurify";
 import { prisma } from "@/lib/prisma";
 
@@ -9,10 +9,7 @@ export const runtime = "nodejs";
 
 /**
  * Poll Gmail (or any IMAP inbox) for new messages and import them.
- * Completely free when paired with a Gmail app password.
- *
  * Call: GET /api/inbound/poll?token=$IMAP_POLL_SECRET
- * Schedule it from Vercel Cron, or a keep-alive service, every few minutes.
  */
 export async function GET(req: Request) {
   const secret = process.env.IMAP_POLL_SECRET;
@@ -27,11 +24,7 @@ export async function GET(req: Request) {
   const port = Number(process.env.IMAP_PORT || 993);
   if (!user || !pass) return NextResponse.json({ error: "IMAP credentials missing" }, { status: 500 });
 
-  const client = new ImapFlow({
-    host, port, secure: true,
-    auth: { user, pass },
-    logger: false,
-  });
+  const client = new ImapFlow({ host, port, secure: true, auth: { user, pass }, logger: false });
 
   let imported = 0;
   let skipped = 0;
@@ -42,17 +35,18 @@ export async function GET(req: Request) {
       const unseen = (await client.search({ seen: false })) as number[] | false;
       const uids = unseen || [];
       for (const uid of uids) {
-        const msg = await client.fetchOne(String(uid), { source: true, envelope: true, uid: true });
+        const msg = await client.fetchOne(String(uid), { source: true, uid: true });
         if (!msg || !msg.source) continue;
-        const parsed = await simpleParser(msg.source);
-        const toList = Array.isArray(parsed.to) ? parsed.to : parsed.to ? [parsed.to] : [];
-        const toAddrs = toList.flatMap((a) => (a && "value" in a ? a.value : [])).map((v) => v.address?.toLowerCase()).filter(Boolean) as string[];
-        const fromAddr = parsed.from?.value?.[0]?.address?.toLowerCase();
-        const fromName = parsed.from?.value?.[0]?.name || null;
+        const raw = msg.source.toString("utf8");
+        const parsed = extract(raw);
+
+        const fromAddr = parsed.from?.address?.toLowerCase();
+        const fromName = parsed.from?.name || null;
+        const toAddrs = (parsed.to || []).map((a) => a.address?.toLowerCase()).filter(Boolean) as string[];
         const subject = (parsed.subject || "").slice(0, 500);
         const text = parsed.text || "";
         const html = DOMPurify.sanitize(parsed.html || "", { USE_PROFILES: { html: true } });
-        const messageId = parsed.messageId || null;
+        const messageId = extractMessageId(raw);
 
         if (!fromAddr || toAddrs.length === 0) { skipped++; continue; }
 
@@ -89,4 +83,9 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({ ok: true, imported, skipped });
+}
+
+function extractMessageId(raw: string): string | null {
+  const m = raw.match(/^message-id:\s*<([^>]+)>/im);
+  return m ? m[1] : null;
 }
