@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ImapFlow } from "imapflow";
 import { extract } from "letterparser";
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
         const toAddrs = (parsed.to || []).map((a) => a.address?.toLowerCase()).filter(Boolean) as string[];
         const subject = (parsed.subject || "").slice(0, 500);
         const text = parsed.text || "";
-        const html = DOMPurify.sanitize(parsed.html || "", { USE_PROFILES: { html: true } });
+        const html = sanitizeHtml(parsed.html || "");
         const messageId = extractMessageId(raw);
 
         if (!fromAddr || toAddrs.length === 0) { skipped++; continue; }

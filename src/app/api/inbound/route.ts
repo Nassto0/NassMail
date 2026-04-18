@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -35,9 +35,7 @@ export async function POST(req: Request) {
   const to = String(payload.to || payload.recipient || payload["To"] || "").trim();
   const subject = String(payload.subject || payload["Subject"] || "").slice(0, 500);
   const text = String(payload.text || payload["body-plain"] || payload["stripped-text"] || "");
-  const html = DOMPurify.sanitize(String(payload.html || payload["body-html"] || payload["stripped-html"] || ""), {
-    USE_PROFILES: { html: true },
-  });
+  const html = sanitizeHtml(String(payload.html || payload["body-html"] || payload["stripped-html"] || ""));
   const messageId = payload.messageId || payload["Message-Id"] || null;
 
   const cleanFrom = extractAddress(from);

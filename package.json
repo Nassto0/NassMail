@@ -13,12 +13,12 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/sanitize-html": "^2.16.1",
     "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
     "dompurify": "^3.2.3",
     "imapflow": "^1.3.2",
-    "isomorphic-dompurify": "^2.19.0",
     "letterparser": "^0.1.8",
     "lucide-react": "^0.469.0",
     "next": "14.2.18",
@@ -26,6 +26,7 @@
     "nodemailer": "^7.0.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sanitize-html": "^2.17.3",
     "tailwind-merge": "^2.5.5",
     "zod": "^3.24.1"
   },

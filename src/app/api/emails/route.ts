@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { isNassAddress, sendExternal } from "@/lib/mailer";
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
 
   const { to, subject, text, draft, scheduledFor } = parsed.data;
-  const cleanHtml = DOMPurify.sanitize(parsed.data.html || "", { USE_PROFILES: { html: true } });
+  const cleanHtml = sanitizeHtml(parsed.data.html || "");
   const from = user.email;
   const fromName = user.displayName ?? user.username;
 
