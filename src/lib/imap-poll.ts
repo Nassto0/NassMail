@@ -15,7 +15,18 @@ export type PollResult = { imported: number; skipped: number; scanned: number };
  *   3. `Re:` subject matches a recent SENT to the same external address (fallback when
  *      Message-Ids did not line up, e.g. old Resend sends that stored only the API id).
  *   4. Otherwise skip.
+ *
+ * Troubleshooting: set `IMAP_DEBUG=1` to log per-message subjects, routing candidates, and skip reasons.
  */
+function imapDebugEnabled() {
+  const v = (process.env.IMAP_DEBUG || "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+function imapLog(...args: unknown[]) {
+  if (imapDebugEnabled()) console.log("[imap-poll]", ...args);
+}
+
 export async function pollMailbox(): Promise<PollResult> {
   const user = (process.env.GMAIL_USER || process.env.IMAP_USER || "").trim();
   /** Google shows app passwords as groups of 4; spaces must be removed or auth fails. */
@@ -43,9 +54,18 @@ export async function pollMailbox(): Promise<PollResult> {
       /** Newest first; cap keeps Vercel / Gmail latency predictable. */
       const uids = [...uidSet].sort((a, b) => b - a).slice(0, 120);
       scanned = uids.length;
+      imapLog("batch-start", {
+        scanned,
+        unseen: Array.isArray(unseen) ? unseen.length : 0,
+        recent: Array.isArray(recent) ? recent.length : 0,
+        domain: (process.env.NASS_DOMAIN || "nassmail.com").toLowerCase(),
+      });
       for (const uid of uids) {
         const msg = await client.fetchOne(String(uid), { source: true }, { uid: true });
-        if (!msg || !msg.source) continue;
+        if (!msg || !msg.source) {
+          imapLog("SKIP fetch-empty", { uid });
+          continue;
+        }
         const raw = msg.source.toString("utf8");
         const parsed = extract(raw);
 
@@ -89,11 +109,19 @@ export async function pollMailbox(): Promise<PollResult> {
         const inReplyTo = normalizeMessageId(extractHeader(raw, "In-Reply-To"));
         const referenceIds = extractReferences(raw).map(normalizeMessageId).filter(Boolean) as string[];
 
-        if (!fromAddr) { skipped++; continue; }
+        if (!fromAddr) {
+          imapLog("SKIP no-from", { uid, subject: subject.slice(0, 120) });
+          skipped++;
+          continue;
+        }
 
         if (messageId) {
           const exists = await prisma.email.findUnique({ where: { messageId } });
-          if (exists) { skipped++; continue; }
+          if (exists) {
+            imapLog("SKIP duplicate-message-id", { uid, messageId });
+            skipped++;
+            continue;
+          }
         }
 
         // Route 1: any NassMail recipient on this message (explicit headers first)
@@ -138,7 +166,24 @@ export async function pollMailbox(): Promise<PollResult> {
           }
         }
 
-        if (!recipient) { skipped++; continue; }
+        if (!recipient) {
+          const idsForLog = [...new Set([inReplyTo, ...referenceIds].filter(Boolean))];
+          imapLog("SKIP no-recipient", {
+            uid,
+            subject: subject.slice(0, 120),
+            from: fromAddr,
+            explicitNass,
+            implicitNass,
+            inReplyTo,
+            referenceSample: referenceIds.slice(0, 3),
+            idsForLog,
+            looksLikeReply,
+          });
+          skipped++;
+          continue;
+        }
+
+        imapLog("IMPORT", { uid, recipient: recipient.email, subject: subject.slice(0, 120) });
 
         await prisma.email.create({
           data: {
