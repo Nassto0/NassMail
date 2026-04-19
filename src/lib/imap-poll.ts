@@ -8,12 +8,11 @@ export type PollResult = { imported: number; skipped: number };
 /**
  * Pull unread messages from an IMAP inbox (Gmail by default) and import them
  * into the NassMail database. Routes delivery in this order:
- *   1. Any `To:` / `Cc:` address matches a NassMail user.email → direct inbox deliver.
- *   2. `In-Reply-To:` or `References:` matches one of our previously-sent
- *      messageIds → deliver to that thread's original sender (handles the
- *      case where Gmail rewrote the From so recipients replied to the Gmail
- *      address instead of the NassMail address).
- *   3. Otherwise skip.
+ *   1. Any `To:` / `Cc:` / `Delivered-To:` / `X-Original-To:` matches a NassMail user.
+ *   2. `In-Reply-To:` or `References:` matches a stored outbound `messageId`.
+ *   3. `Re:` subject matches a recent SENT to the same external address (fallback when
+ *      Message-Ids did not line up, e.g. old Resend sends that stored only the API id).
+ *   4. Otherwise skip.
  */
 export async function pollMailbox(): Promise<PollResult> {
   const user = process.env.GMAIL_USER || process.env.IMAP_USER;
@@ -44,7 +43,14 @@ export async function pollMailbox(): Promise<PollResult> {
           (addrs || []).map((a) => a.address?.toLowerCase()).filter(Boolean) as string[];
         const toAddrs = addr(parsed.to);
         const ccAddrs = addr(parsed.cc);
-        const routedTo = [...new Set([...toAddrs, ...ccAddrs])];
+        const envelopeAddrs = [
+          extractHeader(raw, "Delivered-To"),
+          extractHeader(raw, "X-Original-To"),
+          extractHeader(raw, "Envelope-To"),
+        ]
+          .map((a) => a?.toLowerCase() ?? "")
+          .filter(Boolean);
+        const routedTo = [...new Set([...toAddrs, ...ccAddrs, ...envelopeAddrs])];
         const subject = (parsed.subject || "").slice(0, 500);
         const text = parsed.text || "";
         const html = sanitizeHtml(parsed.html || "");
@@ -77,6 +83,28 @@ export async function pollMailbox(): Promise<PollResult> {
             if (original?.senderId) {
               recipient = await prisma.user.findUnique({ where: { id: original.senderId } });
               threadId = original.threadId ?? undefined;
+            }
+          }
+        }
+
+        // Route 2b: subject threading for external replies (covers legacy sends without real Message-ID stored)
+        if (!recipient && /^re:\s*/i.test(subject) && fromAddr) {
+          const needle = baseSubjectForThread(subject);
+          if (needle.length >= 2) {
+            const sentCandidates = await prisma.email.findMany({
+              where: {
+                folder: "SENT",
+                senderId: { not: null },
+                toAddress: { equals: fromAddr, mode: "insensitive" },
+              },
+              orderBy: { createdAt: "desc" },
+              take: 30,
+              select: { senderId: true, threadId: true, subject: true },
+            });
+            const hit = sentCandidates.find((e) => baseSubjectForThread(e.subject) === needle);
+            if (hit?.senderId) {
+              recipient = await prisma.user.findUnique({ where: { id: hit.senderId } });
+              threadId = hit.threadId ?? undefined;
             }
           }
         }
@@ -126,6 +154,17 @@ function extractHeader(raw: string, name: string): string | null {
 function normalizeMessageId(id: string | null): string | null {
   if (!id) return null;
   return id.replace(/^<|>$/g, "").trim() || null;
+}
+
+/** Strips Re:/Fwd: chains for loose reply ↔ sent subject matching. */
+function baseSubjectForThread(s: string): string {
+  let t = s.trim();
+  for (let i = 0; i < 8; i++) {
+    const next = t.replace(/^\s*(re|fw|fwd)\s*:\s*/i, "").trim();
+    if (next === t) break;
+    t = next;
+  }
+  return t.toLowerCase();
 }
 
 function extractReferences(raw: string): string[] {

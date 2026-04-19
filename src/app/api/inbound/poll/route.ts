@@ -4,13 +4,27 @@ import { pollMailbox } from "@/lib/imap-poll";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** Cron-gated poller. Call: GET /api/inbound/poll?token=$IMAP_POLL_SECRET */
+/**
+ * Cron-gated poller.
+ * - Vercel Cron: set `CRON_SECRET` in project env; Vercel sends `Authorization: Bearer <CRON_SECRET>`.
+ * - Manual / external: `GET /api/inbound/poll?token=$IMAP_POLL_SECRET` or header `x-inbound-token`.
+ */
 export async function GET(req: Request) {
-  const secret = process.env.IMAP_POLL_SECRET;
-  if (!secret) return NextResponse.json({ error: "Polling disabled" }, { status: 503 });
+  const cronSecret = process.env.CRON_SECRET;
+  const auth = req.headers.get("authorization") ?? "";
+  const vercelCron = cronSecret && auth === `Bearer ${cronSecret}`;
+
   const url = new URL(req.url);
   const token = url.searchParams.get("token") || req.headers.get("x-inbound-token");
-  if (token !== secret) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const imapSecret = process.env.IMAP_POLL_SECRET;
+  const legacyToken = imapSecret && token === imapSecret;
+
+  if (!vercelCron && !legacyToken) {
+    if (!cronSecret && !imapSecret) {
+      return NextResponse.json({ error: "Polling disabled (set CRON_SECRET and/or IMAP_POLL_SECRET)" }, { status: 503 });
+    }
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const result = await pollMailbox();

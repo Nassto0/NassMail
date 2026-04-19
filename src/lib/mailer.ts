@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import nodemailer from "nodemailer";
 
 export type OutboundMail = {
@@ -16,6 +17,9 @@ const provider = (process.env.MAIL_PROVIDER || "dev").toLowerCase();
 async function sendResend(m: OutboundMail): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error("RESEND_API_KEY missing");
+  /** Resend's JSON `id` is not the SMTP Message-ID. Replies use the real Message-ID in In-Reply-To, so we set one and store it for IMAP threading. */
+  const domain = (process.env.NASS_DOMAIN || "nassmail.com").toLowerCase();
+  const smtpMessageId = `${randomUUID()}@${domain}`;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -27,11 +31,12 @@ async function sendResend(m: OutboundMail): Promise<SendResult> {
       subject: m.subject,
       text: m.text,
       html: m.html,
+      headers: { "Message-ID": `<${smtpMessageId}>` },
     }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Resend: ${res.status} ${JSON.stringify(data)}`);
-  return { messageId: data.id, provider: "resend", accepted: true, info: data };
+  return { messageId: smtpMessageId, provider: "resend", accepted: true, info: data };
 }
 
 async function sendBrevo(m: OutboundMail): Promise<SendResult> {
