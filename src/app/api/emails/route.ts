@@ -178,11 +178,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: `No NassMail user at ${to}`, email: sent }, { status: 404 });
   }
 
+  const threadId = randomUUID();
   const sent = await prisma.email.create({
     data: {
       subject, bodyText: text, bodyHtml: cleanHtml,
       fromAddress: from, fromName, toAddress: to,
       folder: "SENT", senderId: user.id, isRead: true,
+      threadId,
     },
   });
 
@@ -192,6 +194,11 @@ export async function POST(req: Request) {
       text: text || stripHtml(cleanHtml),
       html: cleanHtml || `<pre style="font-family:inherit;white-space:pre-wrap">${escapeHtml(text)}</pre>`,
     });
+    /** Strip the angle brackets nodemailer wraps around Message-Id so the value matches what we'll later pull out of replies' In-Reply-To / References headers. */
+    const mid = result.messageId?.replace(/^<|>$/g, "");
+    if (mid) {
+      try { await prisma.email.update({ where: { id: sent.id }, data: { messageId: mid } }); } catch {}
+    }
     return NextResponse.json({ ok: true, delivery: "external", provider: result.provider, email: sent });
   } catch (e: any) {
     return NextResponse.json(

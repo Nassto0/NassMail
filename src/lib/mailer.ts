@@ -22,6 +22,8 @@ async function sendResend(m: OutboundMail): Promise<SendResult> {
     body: JSON.stringify({
       from: m.fromName ? `${m.fromName} <${m.from}>` : m.from,
       to: [m.to],
+      /** Replies go to the NassMail address (Cloudflare routing / your inbound path). */
+      reply_to: [m.from],
       subject: m.subject,
       text: m.text,
       html: m.html,
@@ -61,8 +63,11 @@ async function sendGmail(m: OutboundMail): Promise<SendResult> {
     secure: true,
     auth: { user, pass },
   });
+  /** Gmail SMTP rewrites the envelope MAIL FROM to the authenticated account, but the visible From: header in the message body is whatever we send. Putting the NassMail address in From (and the gmail account in Sender) makes recipients see "name@nassmail.com" in their client, and — crucially — replies go to the NassMail address so Cloudflare Email Routing can forward them back to us. */
+  const fromHeader = m.fromName ? `"${m.fromName}" <${m.from}>` : m.from;
   const info = await transporter.sendMail({
-    from: m.fromName ? `"${m.fromName}" <${user}>` : user,
+    from: fromHeader,
+    sender: user,
     replyTo: m.from,
     to: m.to,
     subject: m.subject,

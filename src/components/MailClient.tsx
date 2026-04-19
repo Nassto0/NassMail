@@ -132,8 +132,14 @@ export function MailClient({ me: initialMe, initialUrl }: { me: Me; initialUrl?:
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
   }, [folder, labelId, selectedId, q, pathname, router, searchParams]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { pullExternal?: boolean }) => {
     setLoading(true);
+    /** Pull any new external mail from the IMAP provider first, so clicking Refresh on INBOX surfaces replies that Cloudflare Email Routing forwarded to our Gmail. Non-fatal — list still loads even if the poller is misconfigured. */
+    if (opts?.pullExternal) {
+      try {
+        await fetch("/api/inbound/refresh", { method: "POST", credentials: "same-origin", cache: "no-store" });
+      } catch {}
+    }
     const params = new URLSearchParams({ folder });
     if (q.trim()) params.set("q", q.trim());
     if (labelId) params.set("label", labelId);
@@ -264,7 +270,7 @@ export function MailClient({ me: initialMe, initialUrl }: { me: Me; initialUrl?:
       items: [
         { key: "inbox", label: t("ctx.inbox_home"), onClick: () => { setFolder("INBOX"); setLabelId(null); setSelectedId(null); } },
         { key: "compose", label: t("ctx.compose"), onClick: () => { setComposeInit({}); setComposeOpen(true); } },
-        { key: "refresh", label: t("ctx.refresh"), onClick: () => refresh(), separatorBefore: true },
+        { key: "refresh", label: t("ctx.refresh"), onClick: () => void refresh({ pullExternal: true }), separatorBefore: true },
       ],
     });
   }
@@ -332,7 +338,7 @@ export function MailClient({ me: initialMe, initialUrl }: { me: Me; initialUrl?:
           <div className="search-pill flex items-center gap-2 surface-soft rounded-full px-3 md:px-4 py-2 border border-token transition-shadow">
             <Search className="w-4 h-4 text-subtle shrink-0" />
             <input value={q} onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && refresh()}
+              onKeyDown={(e) => { if (e.key === "Enter") void refresh({ pullExternal: true }); }}
               placeholder={t("top.search")}
               className="flex-1 bg-transparent outline-none text-sm min-w-0 border-0 focus:ring-0 focus-visible:ring-0 focus-visible:shadow-none" />
             {q && (
@@ -340,11 +346,15 @@ export function MailClient({ me: initialMe, initialUrl }: { me: Me; initialUrl?:
                 <X className="w-4 h-4 text-subtle" />
               </button>
             )}
-            <SearchFilter filters={filters} setFilters={setFilters} onApply={refresh} />
+            <SearchFilter filters={filters} setFilters={setFilters} onApply={() => void refresh({ pullExternal: true })} />
           </div>
         </div>
         <div className="flex items-center gap-1 md:gap-2 ms-auto shrink-0">
-          <button type="button" onClick={refresh} className="p-2 rounded-full hover:surface-hover" title={t("top.refresh")}>
+          <button
+            type="button"
+            onClick={() => void refresh({ pullExternal: true })}
+            className="p-2 rounded-full hover:surface-hover"
+            title={t("top.refresh")}>
             <RefreshCw className={cn("w-4 h-4 text-muted", loading && "animate-spin")} />
           </button>
           <button type="button" onClick={() => setSettingsOpen(true)} className="p-2 rounded-full hover:surface-hover" title={t("top.settings")}>
