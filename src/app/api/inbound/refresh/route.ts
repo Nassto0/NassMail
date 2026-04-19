@@ -16,6 +16,16 @@ export async function POST() {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Refresh failed";
     console.error("[imap refresh]", e);
+    if (msg.includes("IMAP credentials missing")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: msg,
+          hint: "Set GMAIL_USER + GMAIL_APP_PASSWORD (or IMAP_USER + IMAP_PASSWORD) in this environment. On Vercel: Project → Settings → Environment Variables → Production.",
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
