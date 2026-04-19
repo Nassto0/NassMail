@@ -6,9 +6,10 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * Cron-gated poller.
- * - Vercel Cron: set `CRON_SECRET` in project env; Vercel sends `Authorization: Bearer <CRON_SECRET>`.
- * - Manual / external: `GET /api/inbound/poll?token=$IMAP_POLL_SECRET` or header `x-inbound-token`.
+ * Triggers `pollMailbox()` (same as POST `/api/inbound/refresh` in the mail UI).
+ * - Vercel Cron: set `CRON_SECRET`; platform sends `Authorization: Bearer <CRON_SECRET>`.
+ * - Manual: `GET /api/inbound/poll?token=$IMAP_POLL_SECRET` (token must match env, not an arbitrary string).
+ * Hobby plan: Vercel allows at most **daily** crons — see `vercel.json`; use Refresh for immediate pulls.
  */
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -33,6 +34,15 @@ export async function GET(req: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Poll failed";
     console.error("[imap poll]", e);
+    if (msg.includes("IMAP credentials missing")) {
+      return NextResponse.json(
+        {
+          error: msg,
+          hint: "Set GMAIL_USER + GMAIL_APP_PASSWORD (or IMAP_USER + IMAP_PASSWORD) on this deployment.",
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
