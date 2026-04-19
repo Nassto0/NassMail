@@ -34,8 +34,8 @@ export async function pollMailbox(): Promise<PollResult> {
     const lock = await client.getMailboxLock("INBOX");
     try {
       const since = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-      const unseen = (await client.search({ seen: false })) as number[] | false;
-      const recent = (await client.search({ since: since })) as number[] | false;
+      const unseen = (await client.search({ seen: false }, { uid: true })) as number[] | false;
+      const recent = (await client.search({ since: since }, { uid: true })) as number[] | false;
       const uidSet = new Set<number>([
         ...(Array.isArray(unseen) ? unseen : []),
         ...(Array.isArray(recent) ? recent : []),
@@ -44,7 +44,7 @@ export async function pollMailbox(): Promise<PollResult> {
       const uids = [...uidSet].sort((a, b) => b - a).slice(0, 120);
       scanned = uids.length;
       for (const uid of uids) {
-        const msg = await client.fetchOne(String(uid), { source: true, uid: true });
+        const msg = await client.fetchOne(String(uid), { source: true }, { uid: true });
         if (!msg || !msg.source) continue;
         const raw = msg.source.toString("utf8");
         const parsed = extract(raw);
