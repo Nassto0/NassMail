@@ -16,7 +16,14 @@ export type PollResult = { imported: number; skipped: number; scanned: number };
  *      Message-Ids did not line up, e.g. old Resend sends that stored only the API id).
  *   4. Otherwise skip.
  *
- * Troubleshooting: set `IMAP_DEBUG=1` to log per-message subjects, routing candidates, and skip reasons.
+ * **Operations (not bugs in this file):**
+ * - **Gmail self-send:** If `GMAIL_USER` sends to `@nassmail.com`, Gmail often dedupes/hides the inbound
+ *   copy. Test from a **different** mailbox (another Gmail, Yahoo, etc.).
+ * - **Spam:** Only folders listed in `IMAP_MAILBOXES` are read (default `INBOX`). Forwarded mail can land in
+ *   **Spam**; add `[Gmail]/Spam` (comma-separated) or use a Gmail filter “never spam” for `@nassmail.com`.
+ * - **`X-Forwarded-To`** is already parsed with other envelope headers.
+ *
+ * **Env:** `IMAP_DEBUG=1` — verbose logs. `IMAP_MAILBOXES` — e.g. `INBOX,[Gmail]/Spam` (Gmail paths).
  */
 function imapDebugEnabled() {
   const v = (process.env.IMAP_DEBUG || "").trim().toLowerCase();
@@ -42,25 +49,33 @@ export async function pollMailbox(): Promise<PollResult> {
 
   try {
     await client.connect();
-    const lock = await client.getMailboxLock("INBOX");
-    try {
-      const since = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-      const unseen = (await client.search({ seen: false }, { uid: true })) as number[] | false;
-      const recent = (await client.search({ since: since }, { uid: true })) as number[] | false;
-      const uidSet = new Set<number>([
-        ...(Array.isArray(unseen) ? unseen : []),
-        ...(Array.isArray(recent) ? recent : []),
-      ]);
-      /** Newest first; cap keeps Vercel / Gmail latency predictable. */
-      const uids = [...uidSet].sort((a, b) => b - a).slice(0, 120);
-      scanned = uids.length;
-      imapLog("batch-start", {
-        scanned,
-        unseen: Array.isArray(unseen) ? unseen.length : 0,
-        recent: Array.isArray(recent) ? recent.length : 0,
-        domain: (process.env.NASS_DOMAIN || "nassmail.com").toLowerCase(),
-      });
-      for (const uid of uids) {
+    const mailboxes = (process.env.IMAP_MAILBOXES || "INBOX")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const uidCap = mailboxes.length > 1 ? 80 : 120;
+
+    for (const mailboxPath of mailboxes) {
+      const lock = await client.getMailboxLock(mailboxPath);
+      try {
+        const since = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+        const unseen = (await client.search({ seen: false }, { uid: true })) as number[] | false;
+        const recent = (await client.search({ since: since }, { uid: true })) as number[] | false;
+        const uidSet = new Set<number>([
+          ...(Array.isArray(unseen) ? unseen : []),
+          ...(Array.isArray(recent) ? recent : []),
+        ]);
+        /** Newest first; cap keeps Vercel / Gmail latency predictable. */
+        const uids = [...uidSet].sort((a, b) => b - a).slice(0, uidCap);
+        scanned += uids.length;
+        imapLog("batch-start", {
+          mailbox: mailboxPath,
+          scanned: uids.length,
+          unseen: Array.isArray(unseen) ? unseen.length : 0,
+          recent: Array.isArray(recent) ? recent.length : 0,
+          domain: (process.env.NASS_DOMAIN || "nassmail.com").toLowerCase(),
+        });
+        for (const uid of uids) {
         const msg = await client.fetchOne(String(uid), { source: true }, { uid: true });
         if (!msg || !msg.source) {
           imapLog("SKIP fetch-empty", { uid });
@@ -183,7 +198,7 @@ export async function pollMailbox(): Promise<PollResult> {
           continue;
         }
 
-        imapLog("IMPORT", { uid, recipient: recipient.email, subject: subject.slice(0, 120) });
+        imapLog("IMPORT", { mailbox: mailboxPath, uid, recipient: recipient.email, subject: subject.slice(0, 120) });
 
         await prisma.email.create({
           data: {
@@ -198,9 +213,10 @@ export async function pollMailbox(): Promise<PollResult> {
         imported++;
 
         try { await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true }); } catch {}
+        }
+      } finally {
+        lock.release();
       }
-    } finally {
-      lock.release();
     }
     await client.logout();
   } catch (e) {
