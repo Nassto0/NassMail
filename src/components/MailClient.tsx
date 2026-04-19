@@ -137,7 +137,13 @@ export function MailClient({ me: initialMe, initialUrl }: { me: Me; initialUrl?:
     /** Pull any new external mail from the IMAP provider first, so clicking Refresh on INBOX surfaces replies that Cloudflare Email Routing forwarded to our Gmail. Non-fatal — list still loads even if the poller is misconfigured. */
     if (opts?.pullExternal) {
       try {
-        await fetch("/api/inbound/refresh", { method: "POST", credentials: "same-origin", cache: "no-store" });
+        const pullRes = await fetch("/api/inbound/refresh", { method: "POST", credentials: "same-origin", cache: "no-store" });
+        if (!pullRes.ok) {
+          const body = (await pullRes.json().catch(() => ({}))) as { error?: string; hint?: string };
+          const msg = body.hint || body.error || t("top.refresh_mail_failed");
+          setToast(msg.length > 220 ? `${msg.slice(0, 217)}…` : msg);
+          window.setTimeout(() => setToast(null), 8000);
+        }
       } catch {}
     }
     const params = new URLSearchParams({ folder });
@@ -149,7 +155,7 @@ export function MailClient({ me: initialMe, initialUrl }: { me: Me; initialUrl?:
     setEmails(data.emails || []);
     setLoading(false);
     void loadNavLabels();
-  }, [folder, q, labelId, filters, loadNavLabels]);
+  }, [folder, q, labelId, filters, loadNavLabels, t]);
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => {

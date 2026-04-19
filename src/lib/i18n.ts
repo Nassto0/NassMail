@@ -71,6 +71,7 @@ const en: Dict = {
   // Toolbar / reader
   "top.search": "Search mail",
   "top.refresh": "Refresh",
+  "top.refresh_mail_failed": "Could not sync mail from your inbox provider.",
   "top.settings": "Settings",
   "top.menu": "Menu",
   "read.reply": "Reply",
@@ -235,6 +236,7 @@ const ar: Dict = {
 
   "top.search": "ابحث في البريد",
   "top.refresh": "تحديث",
+  "top.refresh_mail_failed": "تعذّر مزامنة البريد من مزوّد صندوق الوارد.",
   "top.settings": "الإعدادات",
   "top.menu": "القائمة",
   "read.reply": "رد",
