@@ -3,11 +3,12 @@ import { extract } from "letterparser";
 import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 
-export type PollResult = { imported: number; skipped: number };
+export type PollResult = { imported: number; skipped: number; scanned: number };
 
 /**
- * Pull unread messages from an IMAP inbox (Gmail by default) and import them
- * into the NassMail database. Routes delivery in this order:
+ * Pull messages from an IMAP inbox (Gmail by default) and import them
+ * into the NassMail database. Uses **unseen** ∪ **recent (10d)** so replies that Gmail
+ * already marked as read (e.g. opened on phone) are not missed. Routes delivery in this order:
  *   1. Any `To:` / `Cc:` / `Delivered-To:` / `X-Original-To:` matches a NassMail user.
  *   2. `In-Reply-To:` or `References:` matches a stored outbound `messageId`.
  *   3. `Re:` subject matches a recent SENT to the same external address (fallback when
@@ -15,8 +16,9 @@ export type PollResult = { imported: number; skipped: number };
  *   4. Otherwise skip.
  */
 export async function pollMailbox(): Promise<PollResult> {
-  const user = process.env.GMAIL_USER || process.env.IMAP_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD || process.env.IMAP_PASSWORD;
+  const user = (process.env.GMAIL_USER || process.env.IMAP_USER || "").trim();
+  /** Google shows app passwords as groups of 4; spaces must be removed or auth fails. */
+  const pass = (process.env.GMAIL_APP_PASSWORD || process.env.IMAP_PASSWORD || "").replace(/\s+/g, "");
   const host = process.env.IMAP_HOST || "imap.gmail.com";
   const port = Number(process.env.IMAP_PORT || 993);
   if (!user || !pass) throw new Error("IMAP credentials missing");
@@ -24,13 +26,22 @@ export async function pollMailbox(): Promise<PollResult> {
   const client = new ImapFlow({ host, port, secure: true, auth: { user, pass }, logger: false });
   let imported = 0;
   let skipped = 0;
+  let scanned = 0;
 
   try {
     await client.connect();
     const lock = await client.getMailboxLock("INBOX");
     try {
+      const since = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
       const unseen = (await client.search({ seen: false })) as number[] | false;
-      const uids = unseen || [];
+      const recent = (await client.search({ since: since })) as number[] | false;
+      const uidSet = new Set<number>([
+        ...(Array.isArray(unseen) ? unseen : []),
+        ...(Array.isArray(recent) ? recent : []),
+      ]);
+      /** Newest first; cap keeps Vercel / Gmail latency predictable. */
+      const uids = [...uidSet].sort((a, b) => b - a).slice(0, 120);
+      scanned = uids.length;
       for (const uid of uids) {
         const msg = await client.fetchOne(String(uid), { source: true, uid: true });
         if (!msg || !msg.source) continue;
@@ -87,8 +98,9 @@ export async function pollMailbox(): Promise<PollResult> {
           }
         }
 
-        // Route 2b: subject threading for external replies (covers legacy sends without real Message-ID stored)
-        if (!recipient && /^re:\s*/i.test(subject) && fromAddr) {
+        // Route 2b: subject threading for external replies (covers legacy sends / Message-ID mismatch)
+        const looksLikeReply = /^re:\s*/i.test(subject) || !!inReplyTo;
+        if (!recipient && looksLikeReply && fromAddr) {
           const needle = baseSubjectForThread(subject);
           if (needle.length >= 2) {
             const sentCandidates = await prisma.email.findMany({
@@ -134,21 +146,28 @@ export async function pollMailbox(): Promise<PollResult> {
     throw e;
   }
 
-  return { imported, skipped };
+  return { imported, skipped, scanned };
 }
 
 function escapeRe(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Header name match is case-insensitive; value may be `<id>` or bare `id` per RFC 5322. */
+/** Header name match is case-insensitive; unfolds RFC 5322 folded lines. */
 function extractHeader(raw: string, name: string): string | null {
   const re = new RegExp(
-    `^${escapeRe(name)}:\\s*(?:<([^>\\s]+)>|([^\\s]+))`,
+    `^${escapeRe(name)}:\\s*([^\r\n]+(?:\r?\n[ \t][^\r\n]+)*)`,
     "im",
   );
   const m = raw.match(re);
-  return (m?.[1] || m?.[2] || null)?.trim() || null;
+  if (!m) return null;
+  const line = m[1].replace(/\r?\n[ \t]+/g, " ").trim();
+  const inner = line.match(/^<([^>]+)>$/);
+  if (inner) return inner[1].trim();
+  const open = line.match(/^<([^>]+)>/);
+  if (open) return open[1].trim();
+  const bare = line.match(/^(\S+@\S+)/);
+  return bare ? bare[1].trim() : line.split(/\s+/)[0]?.trim() || null;
 }
 
 function normalizeMessageId(id: string | null): string | null {
@@ -160,7 +179,7 @@ function normalizeMessageId(id: string | null): string | null {
 function baseSubjectForThread(s: string): string {
   let t = s.trim();
   for (let i = 0; i < 8; i++) {
-    const next = t.replace(/^\s*(re|fw|fwd)\s*:\s*/i, "").trim();
+    const next = t.replace(/^\s*(re|fw|fwd|aw)\s*:\s*/i, "").trim();
     if (next === t) break;
     t = next;
   }

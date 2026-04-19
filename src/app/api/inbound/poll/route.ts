@@ -3,6 +3,7 @@ import { pollMailbox } from "@/lib/imap-poll";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 /**
  * Cron-gated poller.
